@@ -1,10 +1,9 @@
-// src/modules/user/schemas/user.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
 export type UserDocument = User & Document;
 
-@Schema({ timestamps: true }) // this adds createdAt and updatedAt
+@Schema({ timestamps: true }) // Automatically adds createdAt and updatedAt fields
 export class User {
   @Prop({ required: true, unique: true })
   username: string;
@@ -21,14 +20,21 @@ export class User {
   @Prop({ required: true })
   password: string;
 
-  @Prop()
+  @Prop({ default: null })
   referralCode?: string;
 
   @Prop({ default: 0 })
-  amount: number;
+  amount: number; // Total balance
 
   @Prop({ default: 0 })
-  withdrawableAmount: number;
+  withdrawableAmount: number; // Balance that can be withdrawn
+
+  // ✅ Added for Forgot Password
+  @Prop()
+  resetToken?: string;
+
+  @Prop()
+  resetTokenExpires?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

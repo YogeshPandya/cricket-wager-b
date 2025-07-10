@@ -9,7 +9,7 @@
 const sendResponse = (
   message: string,
   data: any,
-  status: boolean
+  status: boolean,
 ): Record<string, any> => {
   return {
     message: message,
