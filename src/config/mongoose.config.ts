@@ -1,4 +1,7 @@
-import { MongooseModuleOptions, MongooseOptionsFactory } from '@nestjs/mongoose';
+import {
+  MongooseModuleOptions,
+  MongooseOptionsFactory,
+} from '@nestjs/mongoose';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -12,7 +15,9 @@ export class MongooseConfigService implements MongooseOptionsFactory {
     const uri = this.configService.get<string>('MONGODB_URI');
 
     if (!uri) {
-      this.logger.error('❌ MONGODB_URI is not defined in environment variables!');
+      this.logger.error(
+        '❌ MONGODB_URI is not defined in environment variables!',
+      );
       throw new Error('MONGODB_URI is not set');
     }
 
