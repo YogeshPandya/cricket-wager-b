@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 export type UserDocument = User & Document;
 
-@Schema({ timestamps: true }) // Automatically adds createdAt and updatedAt fields
+@Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true })
   username: string;
@@ -18,18 +18,21 @@ export class User {
   phoneNumber: string;
 
   @Prop({ required: true })
-  password: string;
+  password: string; // hashed password only
 
-  @Prop({ default: null })
-  referralCode?: string;
+  @Prop({ default: Date.now })
+  registrationDate: Date;
 
-  @Prop({ default: 0 })
-  amount: number; // Total balance
+  @Prop({ type: [{ amount: Number }] })
+  rechargeHistory: { amount: number }[];
 
-  @Prop({ default: 0 })
-  withdrawableAmount: number; // Balance that can be withdrawn
+  @Prop({ type: [{ amount: Number }] })
+  withdrawalHistory: { amount: number }[];
 
-  // ✅ Added for Forgot Password
+  @Prop({ type: [{ amount: Number, winAmount: Number }] })
+  bets: { amount: number; winAmount: number }[];
+
+  // For forgot/reset password
   @Prop()
   resetToken?: string;
 

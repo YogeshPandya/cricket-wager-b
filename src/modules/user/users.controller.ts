@@ -3,6 +3,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpException,
   HttpStatus,
   Post,
@@ -22,6 +23,27 @@ export class UserController {
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
   ) {}
+
+  // ✅ GET all users (for Admin Dashboard)
+  @Get('all')
+  async getAllUsers(@Res() res: Response) {
+    try {
+      const users = await this.userService.getAllUsers();
+      return res
+        .status(HttpStatus.OK)
+        .send(sendResponse('success.user_list', { users }, true));
+    } catch (error) {
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .send(
+          sendResponse(
+            'error.get_user_list_failed',
+            { error: error.message },
+            false,
+          ),
+        );
+    }
+  }
 
   // ✅ Signup
   @Post('signup')
