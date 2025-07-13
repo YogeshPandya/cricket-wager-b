@@ -3,23 +3,23 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+
 import { MongooseConfigService } from './config/mongoose.config';
+
 import { UserModule } from './modules/user/users.module';
 import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
-    // ✅ Load environment variables and make them globally accessible
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    // ✅ Load environment variables from .env and make available across app
+    ConfigModule.forRoot({ isGlobal: true }),
 
-    // ✅ Asynchronously connect to MongoDB using MongooseConfigService
+    // ✅ MongoDB connection setup using config service (uri, options, etc.)
     MongooseModule.forRootAsync({
       useClass: MongooseConfigService,
     }),
 
-    // ✅ Import user module (login/signup)
+    // ✅ Project feature modules
     UserModule,
     AdminModule,
   ],
