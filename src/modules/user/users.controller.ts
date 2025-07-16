@@ -25,12 +25,10 @@ export class UserController {
     private readonly jwtService: JwtService,
   ) {}
 
-  // ✅ Signup
   @Post('signup')
   async signup(@Body() body: CreateUserDto, @Res() res: Response) {
     try {
       const user = await this.userService.signup(body);
-
       const token = this.jwtService.generateToken({
         id: user._id,
         username: user.username,
@@ -38,36 +36,21 @@ export class UserController {
 
       return res
         .status(HttpStatus.OK)
-        .send(
-          sendResponse(
-            'success.user_signup',
-            { user, access_token: token },
-            true,
-          ),
-        );
+        .send(sendResponse('success.user_signup', { user, access_token: token }, true));
     } catch (error) {
       const status =
-        error instanceof HttpException
-          ? error.getStatus()
-          : HttpStatus.INTERNAL_SERVER_ERROR;
+        error instanceof HttpException ? error.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
       return res
         .status(status)
-        .send(
-          sendResponse('error.signup_failed', { error: error.message }, false),
-        );
+        .send(sendResponse('error.signup_failed', { error: error.message }, false));
     }
   }
 
-  // ✅ Login
   @Post('login')
   async login(@Body() body: LoginUserDto, @Res() res: Response) {
     try {
-      const user = await this.userService.validateUser(
-        body.username,
-        body.password,
-      );
-
+      const user = await this.userService.validateUser(body.username, body.password);
       if (!user) {
         return res
           .status(HttpStatus.UNAUTHORIZED)
@@ -81,136 +64,78 @@ export class UserController {
 
       return res
         .status(HttpStatus.OK)
-        .send(
-          sendResponse(
-            'success.user_login',
-            { user, access_token: token },
-            true,
-          ),
-        );
+        .send(sendResponse('success.user_login', { user, access_token: token }, true));
     } catch (error) {
       const status =
-        error instanceof HttpException
-          ? error.getStatus()
-          : HttpStatus.INTERNAL_SERVER_ERROR;
+        error instanceof HttpException ? error.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
       return res
         .status(status)
-        .send(
-          sendResponse('error.login_failed', { error: error.message }, false),
-        );
+        .send(sendResponse('error.login_failed', { error: error.message }, false));
     }
   }
 
-  // ✅ Forgot Password
   @Post('forgot-password')
-  async forgotPassword(
-    @Body('identifier') identifier: string,
-    @Res() res: Response,
-  ) {
+  async forgotPassword(@Body('identifier') identifier: string, @Res() res: Response) {
     try {
       const result = await this.userService.forgotPassword(identifier);
-      return res
-        .status(HttpStatus.OK)
-        .send(sendResponse('success.forgot_password', result, true));
+      return res.status(HttpStatus.OK).send(sendResponse('success.forgot_password', result, true));
     } catch (error) {
       const status =
-        error instanceof HttpException
-          ? error.getStatus()
-          : HttpStatus.INTERNAL_SERVER_ERROR;
+        error instanceof HttpException ? error.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
       return res
         .status(status)
-        .send(
-          sendResponse(
-            'error.forgot_password_failed',
-            { error: error.message },
-            false,
-          ),
-        );
+        .send(sendResponse('error.forgot_password_failed', { error: error.message }, false));
     }
   }
 
-  // ✅ Reset Login Password
   @Post('reset-login-password')
-  async resetLoginPassword(
-    @Body() body: ResetPasswordDto,
-    @Res() res: Response,
-  ) {
+  async resetLoginPassword(@Body() body: ResetPasswordDto, @Res() res: Response) {
     try {
       const { username, accessToken, newPassword } = body;
-
-      const result = await this.userService.resetLoginPassword(
-        username,
-        accessToken,
-        newPassword,
-      );
-
+      await this.userService.resetLoginPassword(username, accessToken, newPassword);
       return res
         .status(HttpStatus.OK)
-        .send(sendResponse('success.reset_password', result, true));
+        .send(sendResponse('success.reset_password', {}, true));
     } catch (error) {
       const status =
-        error instanceof HttpException
-          ? error.getStatus()
-          : HttpStatus.INTERNAL_SERVER_ERROR;
+        error instanceof HttpException ? error.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
       return res
         .status(status)
-        .send(
-          sendResponse(
-            'error.reset_password_failed',
-            { error: error.message },
-            false,
-          ),
-        );
+        .send(sendResponse('error.reset_password_failed', { error: error.message }, false));
     }
   }
 
-  // ✅ Get Current User
   @Get('me')
   async getLoggedInUser(@Req() req: Request, @Res() res: Response) {
     try {
       const authHeader = req.headers['authorization'];
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res
-          .status(HttpStatus.UNAUTHORIZED)
-          .send(sendResponse('error.missing_token', {}, false));
+        return res.status(HttpStatus.UNAUTHORIZED).send(sendResponse('error.missing_token', {}, false));
       }
 
       const token = authHeader.split(' ')[1];
       const decoded = this.jwtService.decodeToken(token);
       if (!decoded || !decoded.id) {
-        return res
-          .status(HttpStatus.UNAUTHORIZED)
-          .send(sendResponse('error.invalid_token', {}, false));
+        return res.status(HttpStatus.UNAUTHORIZED).send(sendResponse('error.invalid_token', {}, false));
       }
 
       const user = await this.userService.getUserById(decoded.id);
       if (!user) {
-        return res
-          .status(HttpStatus.NOT_FOUND)
-          .send(sendResponse('error.user_not_found', {}, false));
+        return res.status(HttpStatus.NOT_FOUND).send(sendResponse('error.user_not_found', {}, false));
       }
 
       const userObj = user.toObject();
       delete userObj.password;
 
-      return res
-        .status(HttpStatus.OK)
-        .send(sendResponse('success.user_details', { user: userObj }, true));
+      return res.status(HttpStatus.OK).send(sendResponse('success.user_details', { user: userObj }, true));
     } catch (error) {
       return res
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .send(
-          sendResponse(
-            'error.fetch_user_failed',
-            { error: error.message },
-            false,
-          ),
-        );
+        .send(sendResponse('error.fetch_user_failed', { error: error.message }, false));
     }
   }
 
-  // ✅ POST /user/recharge - direct recharge request
   @Post('recharge')
   async submitRecharge(
     @Body('amount') amount: number,
@@ -221,150 +146,77 @@ export class UserController {
     try {
       const authHeader = req.headers['authorization'];
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res
-          .status(HttpStatus.UNAUTHORIZED)
-          .send(sendResponse('error.missing_token', {}, false));
+        return res.status(HttpStatus.UNAUTHORIZED).send(sendResponse('error.missing_token', {}, false));
       }
 
       const token = authHeader.split(' ')[1];
       const decoded = this.jwtService.decodeToken(token);
       if (!decoded || !decoded.id) {
-        return res
-          .status(HttpStatus.UNAUTHORIZED)
-          .send(sendResponse('error.invalid_token', {}, false));
+        return res.status(HttpStatus.UNAUTHORIZED).send(sendResponse('error.invalid_token', {}, false));
       }
 
-      const result = await this.userService.submitRechargeRequest(
-        decoded.id,
-        amount,
-        utr,
-      );
-
+      const result = await this.userService.submitRechargeRequest(decoded.id, amount, utr);
       if (!result.status && result.message === 'UTR_ALREADY_USED') {
         return res
           .status(HttpStatus.BAD_REQUEST)
-          .send(
-            sendResponse(
-              'error.utr_duplicate',
-              { error: 'This UTR number has already been used.' },
-              false,
-            ),
-          );
+          .send(sendResponse('error.utr_duplicate', { error: 'This UTR number has already been used.' }, false));
       }
 
       if (!result.status) {
         return res
           .status(HttpStatus.BAD_REQUEST)
-          .send(
-            sendResponse(
-              'error.recharge_failed',
-              { error: result.message },
-              false,
-            ),
-          );
+          .send(sendResponse('error.recharge_failed', { error: result.message }, false));
       }
 
-      return res
-        .status(HttpStatus.OK)
-        .send(sendResponse('success.recharge_submitted', {}, true));
+      return res.status(HttpStatus.OK).send(sendResponse('success.recharge_submitted', {}, true));
     } catch (error) {
       const status =
-        error instanceof HttpException
-          ? error.getStatus()
-          : HttpStatus.INTERNAL_SERVER_ERROR;
-      return res
-        .status(status)
-        .send(
-          sendResponse(
-            'error.recharge_failed',
-            { error: error.message },
-            false,
-          ),
-        );
+        error instanceof HttpException ? error.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+      return res.status(status).send(sendResponse('error.recharge_failed', { error: error.message }, false));
     }
   }
 
-  // ✅ POST /user/recharge-request - with DTO support
   @Post('recharge-request')
-  async rechargeRequest(
-    @Req() req: Request,
-    @Body() body: RechargeRequestDto,
-    @Res() res: Response,
-  ) {
+  async rechargeRequest(@Req() req: Request, @Body() body: RechargeRequestDto, @Res() res: Response) {
     try {
       const authHeader = req.headers['authorization'];
       if (!authHeader?.startsWith('Bearer ')) {
-        return res
-          .status(HttpStatus.UNAUTHORIZED)
-          .send(sendResponse('error.missing_token', {}, false));
+        return res.status(HttpStatus.UNAUTHORIZED).send(sendResponse('error.missing_token', {}, false));
       }
 
       const token = authHeader.split(' ')[1];
       const decoded = this.jwtService.decodeToken(token);
       if (!decoded?.id) {
-        return res
-          .status(HttpStatus.UNAUTHORIZED)
-          .send(sendResponse('error.invalid_token', {}, false));
+        return res.status(HttpStatus.UNAUTHORIZED).send(sendResponse('error.invalid_token', {}, false));
       }
 
       const { amount, utr } = body;
-
-      const result = await this.userService.submitRechargeRequest(
-        decoded.id,
-        amount,
-        utr,
-      );
+      const result = await this.userService.submitRechargeRequest(decoded.id, amount, utr);
 
       if (!result.status) {
         return res
           .status(HttpStatus.BAD_REQUEST)
-          .send(
-            sendResponse(
-              'error.recharge_request_failed',
-              { error: result.message },
-              false,
-            ),
-          );
+          .send(sendResponse('error.recharge_request_failed', { error: result.message }, false));
       }
 
-      return res
-        .status(HttpStatus.OK)
-        .send(sendResponse('success.recharge_request_submitted', {}, true));
+      return res.status(HttpStatus.OK).send(sendResponse('success.recharge_request_submitted', {}, true));
     } catch (error) {
       return res
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .send(
-          sendResponse(
-            'error.recharge_request_failed',
-            { error: error.message },
-            false,
-          ),
-        );
+        .send(sendResponse('error.recharge_request_failed', { error: error.message }, false));
     }
   }
 
-  // ✅ Admin: get all recharge requests
   @Get('/admin/recharges')
   async getRechargeRequests(@Res() res: Response) {
     try {
       const requests = await this.userService.getRechargeRequests();
-      return res
-        .status(HttpStatus.OK)
-        .send(sendResponse('success.recharge_list', { requests }, true));
+      return res.status(HttpStatus.OK).send(sendResponse('success.recharge_list', { requests }, true));
     } catch (error) {
-      return res
-        .status(500)
-        .send(
-          sendResponse(
-            'error.fetch_recharges',
-            { error: error.message },
-            false,
-          ),
-        );
+      return res.status(500).send(sendResponse('error.fetch_recharges', { error: error.message }, false));
     }
   }
 
-  // ✅ Admin: update recharge status
   @Patch('/admin/recharge-status')
   async updateRechargeStatus(
     @Body('username') username: string,
@@ -374,42 +226,47 @@ export class UserController {
   ) {
     try {
       await this.userService.updateRechargeStatus(username, utr, status);
-      return res
-        .status(HttpStatus.OK)
-        .send(sendResponse('success.recharge_status_updated', {}, true));
+      return res.status(HttpStatus.OK).send(sendResponse('success.recharge_status_updated', {}, true));
     } catch (error) {
-      const statusCode =
-        error instanceof HttpException ? error.getStatus() : 500;
-      return res
-        .status(statusCode)
-        .send(
-          sendResponse(
-            'error.update_status_failed',
-            { error: error.message },
-            false,
-          ),
-        );
+      const statusCode = error instanceof HttpException ? error.getStatus() : 500;
+      return res.status(statusCode).send(sendResponse('error.update_status_failed', { error: error.message }, false));
     }
   }
 
-  // ✅ Admin: get all users
   @Get('all')
   async getAllUsers(@Res() res: Response) {
     try {
       const users = await this.userService.getAllUsers();
+      return res.status(HttpStatus.OK).send(sendResponse('success.user_list', { users }, true));
+    } catch (error) {
+      return res.status(500).send(sendResponse('error.get_user_list_failed', { error: error.message }, false));
+    }
+  }
+
+  // ✅ 👇 Add this at the bottom of UserController
+  @Get('recharge-history')
+  async getRechargeHistory(@Req() req: Request, @Res() res: Response) {
+    try {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).send(sendResponse('error.missing_token', {}, false));
+      }
+
+      const token = authHeader.split(' ')[1];
+      const decoded = this.jwtService.decodeToken(token);
+      if (!decoded || !decoded.id) {
+        return res.status(401).send(sendResponse('error.invalid_token', {}, false));
+      }
+
+      const rechargeHistory = await this.userService.getRechargeHistory(decoded.id);
+
       return res
-        .status(HttpStatus.OK)
-        .send(sendResponse('success.user_list', { users }, true));
+        .status(200)
+        .send(sendResponse('success.recharge_history', { rechargeHistory }, true));
     } catch (error) {
       return res
         .status(500)
-        .send(
-          sendResponse(
-            'error.get_user_list_failed',
-            { error: error.message },
-            false,
-          ),
-        );
+        .send(sendResponse('error.recharge_history_failed', { error: error.message }, false));
     }
   }
 }

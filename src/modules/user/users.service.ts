@@ -189,4 +189,10 @@ export class UserService {
 
     await user.save();
   }
+
+  async getRechargeHistory(userId: string) {
+    const user = await this.userModel.findById(userId).lean();
+    if (!user) throw new Error('User not found');
+    return user.rechargeHistory.reverse(); // latest first
+  }
 }
