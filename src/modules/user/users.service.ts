@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from '../../schemas/user.schema';
 import { Model } from 'mongoose';
@@ -9,48 +9,24 @@ import { CreateUserDto } from './dto/create-user.dto';
 export class UserService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  // ✅ Signup with individual duplicate checks
+  // ✅ Signup with duplicate checks
   async signup(data: CreateUserDto): Promise<UserDocument> {
-    try {
-      // Check for existing username
-      const existingUsername = await this.userModel.findOne({ username: data.username });
-      if (existingUsername) {
-        throw new HttpException('Username already exists', HttpStatus.CONFLICT);
-      }
+    const existing = await Promise.all([
+      this.userModel.findOne({ username: data.username }),
+      this.userModel.findOne({ email: data.email }),
+      this.userModel.findOne({ phoneNumber: data.phoneNumber }),
+    ]);
+    if (existing[0]) throw new HttpException('Username already exists', 409);
+    if (existing[1]) throw new HttpException('Email already exists', 409);
+    if (existing[2])
+      throw new HttpException('Phone number already exists', 409);
 
-      // Check for existing email
-      const existingEmail = await this.userModel.findOne({ email: data.email });
-      if (existingEmail) {
-        throw new HttpException('Email already exists', HttpStatus.CONFLICT);
-      }
-
-      // Check for existing phone number
-      const existingPhone = await this.userModel.findOne({ phoneNumber: data.phoneNumber });
-      if (existingPhone) {
-        throw new HttpException('Phone number already exists', HttpStatus.CONFLICT);
-      }
-
-      // Hash password and create user
-      const hashedPassword = await bcrypt.hash(data.password, 10);
-
-      const newUser = new this.userModel({
-        ...data,
-        password: hashedPassword,
-      });
-
-      return await newUser.save();
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-
-      console.error('Signup error:', error);
-      throw new HttpException(
-        'Internal server error',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const newUser = new this.userModel({ ...data, password: hashedPassword });
+    return await newUser.save();
   }
 
-  // ✅ Validate login
+  // ✅ Login validation
   async validateUser(
     username: string,
     password: string,
@@ -62,26 +38,22 @@ export class UserService {
     return isMatch ? user : null;
   }
 
-  // ✅ Forgot password
+  // ✅ Forgot Password
   async forgotPassword(identifier: string): Promise<{ resetToken: string }> {
     const user = await this.userModel.findOne({
       $or: [{ username: identifier }, { email: identifier }],
     });
-
-    if (!user) {
-      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-    }
+    if (!user) throw new HttpException('User not found', 404);
 
     const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
-
     user.resetToken = resetToken;
-    user.resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+    user.resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
 
     return { resetToken };
   }
 
-  // ✅ Reset password with token
+  // ✅ Reset with token
   async resetPassword(
     identifier: string,
     resetToken: string,
@@ -90,58 +62,131 @@ export class UserService {
     const user = await this.userModel.findOne({
       $or: [{ username: identifier }, { email: identifier }],
     });
-
     if (!user || user.resetToken !== resetToken) {
-      throw new HttpException(
-        'Invalid identifier or reset token',
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new HttpException('Invalid identifier or reset token', 401);
     }
 
     if (!user.resetTokenExpires || user.resetTokenExpires < new Date()) {
-      throw new HttpException('Reset token expired', HttpStatus.BAD_REQUEST);
+      throw new HttpException('Reset token expired', 400);
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
+    user.password = await bcrypt.hash(newPassword, 10);
     user.resetToken = null;
     user.resetTokenExpires = null;
-
     await user.save();
   }
 
-  // ✅ Reset password using access token
+  // ✅ Reset with login access token
   async resetLoginPassword(
     username: string,
     accessToken: string,
     newPassword: string,
   ): Promise<void> {
     const user = await this.userModel.findOne({ username });
-
     if (!user || user.resetToken !== accessToken) {
-      throw new HttpException(
-        'Invalid username or token',
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new HttpException('Invalid username or token', 401);
     }
 
     if (!user.resetTokenExpires || user.resetTokenExpires < new Date()) {
-      throw new HttpException('Reset token expired', HttpStatus.BAD_REQUEST);
+      throw new HttpException('Reset token expired', 400);
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
+    user.password = await bcrypt.hash(newPassword, 10);
     user.resetToken = null;
     user.resetTokenExpires = null;
-
     await user.save();
   }
 
-  // ✅ Admin dashboard: get all users
+  // ✅ Admin: Get all users
   async getAllUsers(): Promise<UserDocument[]> {
     return this.userModel
-      .find({}, { password: 0, resetToken: 0, resetTokenExpires: 0 }) // exclude sensitive fields
+      .find({}, { password: 0, resetToken: 0 })
       .sort({ createdAt: -1 })
       .exec();
+  }
+
+  // ✅ Get user by ID
+  async getUserById(id: string): Promise<UserDocument | null> {
+    return this.userModel.findById(id).exec();
+  }
+
+  // ✅ User submits recharge request (with UTR) — now with UTR uniqueness check
+  async submitRechargeRequest(
+    userId: string,
+    amount: number,
+    utr: string,
+  ): Promise<{ status: boolean; message?: string }> {
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new HttpException('User not found', 404);
+
+    // ✅ Check if UTR already used by any user
+    const utrUsed = await this.userModel.findOne({
+      'rechargeHistory.utr': utr,
+    });
+
+    if (utrUsed) {
+      return { status: false, message: 'UTR_ALREADY_USED' };
+    }
+
+    // ✅ Append to user's recharge history
+    user.rechargeHistory.push({
+      amount,
+      utr,
+      status: 'Pending',
+      createdAt: new Date(),
+    });
+
+    await user.save();
+
+    return { status: true };
+  }
+
+  // ✅ Admin: Get all recharge requests
+  async getRechargeRequests(): Promise<any[]> {
+    const users = await this.userModel
+      .find(
+        { 'rechargeHistory.0': { $exists: true } },
+        { username: 1, rechargeHistory: 1 },
+      )
+      .lean();
+
+    // Flatten the recharge requests
+    const allRequests = users.flatMap((user) =>
+      user.rechargeHistory.map((entry) => ({
+        username: user.username,
+        ...entry,
+      })),
+    );
+
+    // Latest first
+    return allRequests.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }
+
+  // ✅ Admin approves or rejects a recharge
+  async updateRechargeStatus(
+    username: string,
+    utr: string,
+    status: 'Success' | 'Failed',
+  ): Promise<void> {
+    const user = await this.userModel.findOne({ username });
+    if (!user) throw new HttpException('User not found', 404);
+
+    const entry = user.rechargeHistory.find((r) => r.utr === utr);
+    if (!entry) throw new HttpException('Recharge not found', 404);
+
+    if (entry.status !== 'Pending') {
+      throw new HttpException('Recharge already processed', 400);
+    }
+
+    entry.status = status;
+
+    if (status === 'Success') {
+      user.balance += entry.amount;
+    }
+
+    await user.save();
   }
 }

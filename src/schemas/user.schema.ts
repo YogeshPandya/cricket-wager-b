@@ -18,26 +18,86 @@ export class User {
   phoneNumber: string;
 
   @Prop({ required: true })
-  password: string; // hashed password only
+  password: string; // Hashed password only
 
   @Prop({ default: Date.now })
   registrationDate: Date;
 
-  @Prop({ type: [{ amount: Number }] })
-  rechargeHistory: { amount: number }[];
+  @Prop({
+    type: [
+      {
+        amount: Number,
+        utr: String,
+        status: {
+          type: String,
+          enum: ['Pending', 'Success', 'Failed'],
+          default: 'Pending',
+        },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  })
+  rechargeHistory: {
+    amount: number;
+    utr: string;
+    status: 'Pending' | 'Success' | 'Failed';
+    createdAt: Date;
+  }[];
 
-  @Prop({ type: [{ amount: Number }] })
-  withdrawalHistory: { amount: number }[];
+  @Prop({
+    type: [
+      {
+        amount: Number,
+        upiId: String,
+        userBankName: String,
+        status: {
+          type: String,
+          enum: ['Pending', 'Success', 'Failed'],
+          default: 'Pending',
+        },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  })
+  withdrawalHistory: {
+    amount: number;
+    upiId: string;
+    userBankName: string;
+    status: 'Pending' | 'Success' | 'Failed';
+    createdAt: Date;
+  }[];
 
-  @Prop({ type: [{ amount: Number, winAmount: Number }] })
-  bets: { amount: number; winAmount: number }[];
+  @Prop({
+    type: [
+      {
+        amount: Number,
+        winAmount: Number,
+        questionId: String,
+        isWon: Boolean,
+      },
+    ],
+    default: [],
+  })
+  bets: {
+    amount: number;
+    winAmount: number;
+    questionId: string;
+    isWon: boolean;
+  }[];
 
-  // For forgot/reset password
   @Prop()
   resetToken?: string;
 
   @Prop()
   resetTokenExpires?: Date;
+
+  @Prop({ default: 0 })
+  balance: number;
+
+  @Prop()
+  profilePic?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
