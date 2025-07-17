@@ -50,7 +50,7 @@ export class User {
       {
         amount: Number,
         upiId: String,
-        userBankName: String,
+        holderName: String,
         status: {
           type: String,
           enum: ['Pending', 'Success', 'Failed'],
@@ -64,7 +64,7 @@ export class User {
   withdrawalHistory: {
     amount: number;
     upiId: string;
-    userBankName: string;
+    holderName: string;
     status: 'Pending' | 'Success' | 'Failed';
     createdAt: Date;
   }[];

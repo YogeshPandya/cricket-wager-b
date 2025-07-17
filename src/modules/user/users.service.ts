@@ -4,6 +4,7 @@ import { User, UserDocument } from '../../schemas/user.schema';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
+import { NotFoundException } from '@nestjs/common';
 
 @Injectable()
 export class UserService {
@@ -194,5 +195,92 @@ export class UserService {
     const user = await this.userModel.findById(userId).lean();
     if (!user) throw new Error('User not found');
     return user.rechargeHistory.reverse(); // latest first
+  }
+
+  // ✅ Submit Withdrawal Request
+  async submitWithdraw(
+    userId: string,
+    amount: number,
+    upiId: string,
+    holderName: string,
+  ) {
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    const withdrawal = {
+      amount,
+      upiId,
+      holderName, // ✅ NEW FIELD
+      status: 'Pending' as const,
+      createdAt: new Date(),
+    };
+
+    user.withdrawalHistory.push(withdrawal);
+    await user.save();
+
+    return {
+      status: true,
+      message: 'Withdrawal request submitted successfully',
+    };
+  }
+
+  // ✅ Fetch All Withdrawal Requests for Admin
+  async getAllWithdrawals() {
+    const users = await this.userModel.find();
+    const requests = [];
+
+    users.forEach((user) => {
+      user.withdrawalHistory.forEach((w) => {
+        requests.push({
+          username: user.username,
+          amount: w.amount,
+          upiId: w.upiId,
+          holderName: w.holderName,
+          status: w.status,
+          createdAt: w.createdAt,
+        });
+      });
+    });
+
+    return {
+      status: true,
+      data: requests.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    };
+  }
+
+  // ✅ Update Withdrawal Status (Admin)
+  async updateWithdrawStatus(
+    username: string,
+    createdAt: string,
+    status: 'approved' | 'rejected',
+  ) {
+    const user = await this.userModel.findOne({ username });
+
+    if (!user) throw new Error('User not found');
+
+    const request = user.withdrawalHistory.find(
+      (req) => req.createdAt.toISOString() === createdAt,
+    );
+
+    if (!request) throw new Error('Withdraw request not found');
+
+    // ✅ Map string to valid enum
+    request.status = status === 'approved' ? 'Success' : 'Failed';
+
+    if (status === 'approved') {
+      user.balance -= request.amount;
+    }
+
+    await user.save();
+    return { message: 'Withdraw status updated' };
+  }
+
+  async getWithdrawalsByUsername(username: string) {
+    const user = await this.userModel.findOne({ username }).lean();
+    if (!user) throw new Error('User not found');
+    return user.withdrawalHistory.reverse();
   }
 }
