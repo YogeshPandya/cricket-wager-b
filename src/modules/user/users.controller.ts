@@ -534,4 +534,44 @@ export class UserController {
         );
     }
   }
+
+  @Get('withdraw')
+  async getUserWithdrawals(@Req() req: Request, @Res() res: Response) {
+    try {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res
+          .status(401)
+          .send(sendResponse('error.missing_token', {}, false));
+      }
+
+      const token = authHeader.split(' ')[1];
+      const decoded = this.jwtService.decodeToken(token);
+      if (!decoded || !decoded.username) {
+        return res
+          .status(401)
+          .send(sendResponse('error.invalid_token', {}, false));
+      }
+
+      const withdrawals = await this.userService.getWithdrawalsByUsername(
+        decoded.username,
+      );
+
+      return res
+        .status(200)
+        .send(
+          sendResponse('success.withdrawals_fetched', { withdrawals }, true),
+        );
+    } catch (error) {
+      return res
+        .status(500)
+        .send(
+          sendResponse(
+            'error.fetch_withdrawals_failed',
+            { error: error.message },
+            false,
+          ),
+        );
+    }
+  }
 }
