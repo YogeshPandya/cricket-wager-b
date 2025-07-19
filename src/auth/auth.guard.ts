@@ -1,5 +1,10 @@
 // src/auth/auth.guard.ts
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '../services/jwt.service';
 
 @Injectable()
@@ -11,17 +16,19 @@ export class AuthGuard implements CanActivate {
     const authHeader = req.headers['authorization'];
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return false;
+      throw new UnauthorizedException(
+        'Authorization token missing or malformed',
+      );
     }
 
     const token = authHeader.split(' ')[1];
     const decoded = this.jwtService.decodeToken(token);
 
     if (!decoded) {
-      return false;
+      throw new UnauthorizedException('Invalid token');
     }
 
-    req.user = decoded; // ✅ attach decoded user to request
+    req.user = decoded; // Attach decoded user info to request
     return true;
   }
 }

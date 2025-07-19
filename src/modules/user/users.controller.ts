@@ -18,6 +18,9 @@ import { LoginUserDto } from './dto/login-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RechargeRequestDto } from './dto/recharge-request.dto';
 import { WithdrawDto } from './dto/withdraw.dto';
+import { UpdateUserInfoDto } from './dto/update-user-info.dto';
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('user')
 export class UserController {
@@ -573,5 +576,12 @@ export class UserController {
           ),
         );
     }
+  }
+  //userInfo
+  @Patch('update')
+  @UseGuards(AuthGuard) // Ensure only logged-in users can update
+  async updateUser(@Req() req, @Body() body: UpdateUserInfoDto) {
+    const userId = req.user.id; // decoded from token
+    return this.userService.updateUser(userId, body);
   }
 }

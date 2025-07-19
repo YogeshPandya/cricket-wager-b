@@ -5,6 +5,8 @@ import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { NotFoundException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
+import { UpdateUserInfoDto } from './dto/update-user-info.dto';
 
 @Injectable()
 export class UserService {
@@ -282,5 +284,33 @@ export class UserService {
     const user = await this.userModel.findOne({ username }).lean();
     if (!user) throw new Error('User not found');
     return user.withdrawalHistory.reverse();
+  }
+
+  //userInfo
+  async updateUser(userId: string, updateData: UpdateUserInfoDto) {
+    const { username, email } = updateData;
+
+    // Check if username is already taken by another user
+    const existingUsername = await this.userModel.findOne({
+      username,
+      _id: { $ne: userId },
+    });
+    if (existingUsername) {
+      throw new BadRequestException('Username already in use.');
+    }
+
+    // Check if email is already taken by another user
+    const existingEmail = await this.userModel.findOne({
+      email,
+      _id: { $ne: userId },
+    });
+    if (existingEmail) {
+      throw new BadRequestException('Email already in use.');
+    }
+
+    // Update the user
+    return this.userModel
+      .findByIdAndUpdate(userId, { username, email }, { new: true })
+      .select('-password'); // hide password if you want
   }
 }
