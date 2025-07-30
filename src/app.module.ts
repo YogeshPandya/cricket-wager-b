@@ -8,6 +8,8 @@ import { MongooseConfigService } from './config/mongoose.config';
 
 import { UserModule } from './modules/user/users.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { MatchGateway } from './gateway/match.gateway';
+import { MatchModule } from './modules/match/match.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { AdminModule } from './modules/admin/admin.module';
     // ✅ Project feature modules
     UserModule,
     AdminModule,
+    MatchModule,
   ],
+  providers: [MatchGateway],
 })
 export class AppModule {}

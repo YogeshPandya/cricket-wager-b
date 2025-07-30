@@ -34,6 +34,7 @@ export class User {
           default: 'Pending',
         },
         createdAt: { type: Date, default: Date.now },
+        updatedAt: { type: Date },
       },
     ],
     default: [],
