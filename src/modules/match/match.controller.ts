@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Get, Delete, Param } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Delete,
+  Param,
+  Patch,
+} from '@nestjs/common';
 import { MatchService } from './match.service';
 import { MatchGateway } from '../../gateway/match.gateway';
 
@@ -45,5 +53,115 @@ export class MatchController {
     const result = await this.matchService.deleteMatch(id);
     this.matchGateway.emitMatchDeleted(id); // ✅ Emit socket event
     return result;
+  }
+
+  //new code
+
+  @Post(':matchId/add-question')
+  async addQuestionToMatch(
+    @Param('matchId') matchId: string,
+    @Body() questionData: any,
+  ) {
+    const question = await this.matchService.addQuestionToMatch(
+      matchId,
+      questionData,
+    );
+    this.matchGateway.questionUpdated(matchId, question); // Optional: emit update
+    return { success: true, question };
+  }
+
+  // PATCH /match/:matchId/edit-question/:questionId
+
+  @Patch(':matchId/edit-question/:questionId')
+  async editQuestion(
+    @Param('matchId') matchId: string,
+    @Param('questionId') questionId: string,
+    @Body() body: { question: string },
+  ) {
+    const updatedQuestion = await this.matchService.editQuestion(
+      matchId,
+      questionId,
+      body.question,
+    );
+
+    this.matchGateway.questionUpdated(matchId, updatedQuestion); // ✅ emit to client
+
+    return updatedQuestion;
+  }
+
+  @Delete(':matchId/delete-question/:questionId')
+  async deleteQuestion(
+    @Param('matchId') matchId: string,
+    @Param('questionId') questionId: string,
+  ) {
+    await this.matchService.deleteQuestion(matchId, questionId);
+
+    this.matchGateway.questionDeleted(matchId, questionId); // ✅ emit deletion
+
+    return { success: true };
+  }
+
+  // match.controller.ts
+  @Patch(':matchId/edit-option/:questionId/:optionId')
+  async updateOption(
+    @Param('matchId') matchId: string,
+    @Param('questionId') questionId: string,
+    @Param('optionId') optionId: string,
+    @Body() body: { label?: string; ratio?: string },
+  ) {
+    const result = await this.matchService.updateOption(
+      matchId,
+      questionId,
+      optionId,
+      body,
+    );
+
+    const updatedOption = result.updatedMatch.questions
+      .find((q) => q._id.toString() === questionId)
+      ?.options.find((o) => o._id.toString() === optionId);
+
+    if (updatedOption) {
+      this.matchGateway.optionUpdated(matchId, questionId, updatedOption);
+    } else {
+      console.warn('Updated option not found for socket emit.');
+    }
+
+    return result;
+  }
+
+  @Post(':matchId/add-option/:questionId')
+  async addOption(
+    @Param('matchId') matchId: string,
+    @Param('questionId') questionId: string,
+    @Body() optionData: { label: string; ratio: string },
+  ) {
+    const option = await this.matchService.addOptionToQuestion(
+      matchId,
+      questionId,
+      optionData,
+    );
+    this.matchGateway.optionUpdated(matchId, questionId, option); // optional socket emit
+    return { success: true, option };
+  }
+
+  @Delete(':matchId/delete-option/:questionId/:optionId')
+  async deleteOption(
+    @Param('matchId') matchId: string,
+    @Param('questionId') questionId: string,
+    @Param('optionId') optionId: string,
+  ) {
+    await this.matchService.deleteOptionFromQuestion(
+      matchId,
+      questionId,
+      optionId,
+    );
+    this.matchGateway.optionDeleted(matchId, questionId, optionId);
+    return { success: true };
+  }
+
+  @Get(':matchId/questions')
+  async getQuestionsForMatch(@Param('matchId') matchId: string) {
+    const questions = await this.matchService.getQuestionsForMatch(matchId);
+    return questions;
   }
 }

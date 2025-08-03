@@ -11,5 +11,7 @@ import { MatchGateway } from '../../gateway/match.gateway';
   ],
   controllers: [MatchController],
   providers: [MatchService, MatchGateway],
+  //new code
+  exports: [MatchService],
 })
 export class MatchModule {}

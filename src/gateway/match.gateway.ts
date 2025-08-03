@@ -50,4 +50,21 @@ export class MatchGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitMatchDeleted(matchId: string) {
     this.server.emit('matchDeleted', matchId); // ✅ NEW for delete
   }
+
+  // new code
+  questionUpdated(matchId: string, question: any) {
+    this.server.emit('questionUpdated', { matchId, question });
+  }
+
+  optionUpdated(matchId: string, questionId: string, option: any) {
+    this.server.emit('optionUpdated', { matchId, questionId, option });
+  }
+
+  optionDeleted(matchId: string, questionId: string, optionId: string) {
+    this.server.emit('optionDeleted', { matchId, questionId, optionId });
+  }
+
+  questionDeleted(matchId: string, questionId: string) {
+    this.server.emit('questionDeleted', { matchId, questionId });
+  }
 }
