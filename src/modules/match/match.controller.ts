@@ -119,11 +119,12 @@ export class MatchController {
     const updatedOption = result.updatedMatch.questions
       .find((q) => q._id.toString() === questionId)
       ?.options.find((o) => o._id.toString() === optionId);
-
     if (updatedOption) {
-      this.matchGateway.optionUpdated(matchId, questionId, updatedOption);
-    } else {
-      console.warn('Updated option not found for socket emit.');
+      // ✅ Emit full updatedQuestion too
+      const updatedQuestion = result.updatedMatch.questions.find(
+        (q) => q._id.toString() === questionId,
+      );
+      this.matchGateway.questionUpdated(matchId, updatedQuestion);
     }
 
     return result;
