@@ -165,4 +165,26 @@ export class MatchController {
     const questions = await this.matchService.getQuestionsForMatch(matchId);
     return questions;
   }
+
+  //new code
+
+  @Post(':matchId/place-bet')
+  async placeBet(
+    @Param('matchId') matchId: string,
+    @Body()
+    betData: {
+      userId: string;
+      questionId: string;
+      optionId: string;
+      amount: number;
+    },
+  ) {
+    const bet = await this.matchService.placeBet(matchId, betData);
+    return { success: true, bet };
+  }
+
+  @Get('user/:userId/bets')
+  async getUserBets(@Param('userId') userId: string) {
+    return this.matchService.getUserBets(userId);
+  }
 }

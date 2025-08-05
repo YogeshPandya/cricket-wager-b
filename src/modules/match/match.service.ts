@@ -182,4 +182,95 @@ export class MatchService {
     }
     return match.questions || [];
   }
+
+  //new code
+
+  async placeBet(
+    matchId: string,
+    {
+      userId,
+      questionId,
+      optionId,
+      amount,
+    }: {
+      userId: string;
+      questionId: string;
+      optionId: string;
+      amount: number;
+    },
+  ) {
+    const match = await this.matchModel.findById(matchId);
+    if (!match) throw new NotFoundException('Match not found');
+
+    const question = match.questions.find(
+      (q) => q._id.toString() === questionId,
+    );
+    if (!question) throw new NotFoundException('Question not found');
+
+    const option = question.options.find((o) => o._id.toString() === optionId);
+    if (!option) throw new NotFoundException('Option not found');
+
+    // ✅ Ratio Calculation Logic (Directly Inside Service)
+    const [num, den] = option.ratio.split('/').map(Number);
+    let expectedReturn = 0;
+
+    if (num && den) {
+      const totalReturn = Math.round((amount * den) / num);
+      const profit = totalReturn - amount;
+      const commission = profit * 0.2;
+      expectedReturn = Math.round(totalReturn - commission);
+    }
+
+    const bet = {
+      userId: new Types.ObjectId(userId),
+      matchId,
+      questionId,
+      optionId,
+      optionLabel: option.label,
+      question: question.question,
+      ratio: option.ratio,
+      amount,
+      expectedReturn,
+      betstatus: 'pending' as 'pending' | 'won' | 'lost',
+    };
+
+    match.bets.push(bet);
+    await match.save();
+
+    return bet;
+  }
+
+  async getUserBets(userId: string) {
+    const matches = await this.matchModel
+      .find({
+        'bets.userId': userId,
+      })
+      .lean();
+
+    // Collect only bets of that user with their match, question, option etc.
+    const userBets = [];
+
+    for (const match of matches) {
+      for (const bet of match.bets) {
+        if (bet.userId.toString() === userId) {
+          userBets.push({
+            matchId: match._id,
+            teamA: match.teamA,
+            teamB: match.teamB,
+            date: match.date,
+            time: match.time,
+            league: match.league,
+            question: bet.question,
+            option: bet.optionLabel,
+            ratio: bet.ratio,
+            amount: bet.amount,
+            expectedReturn: bet.expectedReturn,
+            betstatus: bet.betstatus,
+          });
+        }
+      }
+    }
+
+    return userBets;
+  }
 }

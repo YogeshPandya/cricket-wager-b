@@ -52,6 +52,56 @@ export class Match {
     }[];
     result: string;
   }[];
+
+  //new code
+
+  @Prop({
+    type: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+        matchId: { type: String, required: true },
+        questionId: { type: String, required: true },
+        optionId: { type: String, required: true },
+        optionLabel: { type: String, required: true },
+        question: { type: String, required: true },
+        ratio: { type: String, required: true },
+        amount: { type: Number, required: true },
+        expectedReturn: { type: Number, required: true },
+        betstatus: {
+          type: String,
+          enum: ['pending', 'won', 'lost'],
+          default: 'pending',
+        },
+      },
+    ],
+    default: [],
+  })
+  bets: {
+    userId: mongoose.Types.ObjectId;
+    matchId: string;
+    questionId: string;
+    optionId: string;
+    optionLabel: string;
+    question: string;
+    ratio: string;
+    amount: number;
+    expectedReturn: number;
+    betstatus: 'pending' | 'won' | 'lost';
+  }[];
+
+  //new
+
+  @Prop({ default: '' })
+  matchResult: string;
+
+  @Prop()
+  bettingLockTime: string;
+
+  @Prop({ default: 0 })
+  totalAmountBet: number;
+
+  @Prop({ default: 0 })
+  totalAmountWon: number;
 }
 
 export const MatchSchema = SchemaFactory.createForClass(Match);
