@@ -313,4 +313,19 @@ export class UserService {
       .findByIdAndUpdate(userId, { username, email }, { new: true })
       .select('-password'); // hide password if you want
   }
+
+  // ✅ Deduct balance from user account
+  async deductBalance(userId: string, amount: number): Promise<void> {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.balance < amount) {
+      throw new BadRequestException('Insufficient balance');
+    }
+
+    user.balance -= amount;
+    await user.save();
+  }
 }

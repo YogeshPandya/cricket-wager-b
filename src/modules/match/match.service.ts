@@ -4,11 +4,13 @@ import { Match, MatchDocument } from '../../schemas/match.schema';
 import { Model } from 'mongoose';
 import { NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { UserService } from '../user/users.service'; // ✅ Import UserService
 
 @Injectable()
 export class MatchService {
   constructor(
     @InjectModel(Match.name) private matchModel: Model<MatchDocument>,
+    private readonly userService: UserService,
   ) {}
 
   async createMatch(data: any): Promise<Match> {
@@ -209,6 +211,8 @@ export class MatchService {
 
     const option = question.options.find((o) => o._id.toString() === optionId);
     if (!option) throw new NotFoundException('Option not found');
+
+    await this.userService.deductBalance(userId, amount);
 
     // ✅ Ratio Calculation Logic (Directly Inside Service)
     const [num, den] = option.ratio.split('/').map(Number);
