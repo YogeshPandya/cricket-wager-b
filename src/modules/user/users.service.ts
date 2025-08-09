@@ -328,4 +328,40 @@ export class UserService {
     user.balance -= amount;
     await user.save();
   }
+
+  //new
+  /**
+   * Process winning bet payout
+   */
+  async processPayout(
+    userId: string,
+    totalReturn: number,
+    profit: number,
+  ): Promise<void> {
+    console.log(`🎉 Processing payout for user ${userId}:`);
+    console.log(`   💰 Total Return: ₹${totalReturn} (to balance)`);
+    console.log(`   💎 Profit: ₹${profit} (to withdrawable)`);
+
+    try {
+      const user = await this.userModel.findById(userId);
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Add total return to balance
+      user.balance += totalReturn;
+
+      // Add only profit to withdrawable
+      user.withdrawable += profit;
+
+      await user.save();
+
+      console.log(`✅ Payout successful for user ${userId}`);
+      console.log(`   📊 New Balance: ₹${user.balance}`);
+      console.log(`   📊 New Withdrawable: ₹${user.withdrawable}`);
+    } catch (error) {
+      console.error(`❌ Error processing payout for user ${userId}:`, error);
+      throw error;
+    }
+  }
 }

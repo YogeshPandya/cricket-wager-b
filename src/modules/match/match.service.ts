@@ -328,6 +328,85 @@ export class MatchService {
   //new code
   // In your MatchService, make sure the setQuestionResult method is properly implemented
 
+  // async setQuestionResult(matchId: string, questionId: string, result: string) {
+  //   console.log('🔍 MatchService.setQuestionResult called:', {
+  //     matchId,
+  //     questionId,
+  //     result,
+  //   });
+
+  //   try {
+  //     const match = await this.matchModel.findById(matchId);
+  //     if (!match) {
+  //       console.error('❌ Match not found:', matchId);
+  //       throw new NotFoundException('Match not found');
+  //     }
+
+  //     console.log('✅ Match found:', match._id);
+  //     console.log('🔍 Looking for question:', questionId);
+  //     console.log(
+  //       '📝 Available questions:',
+  //       match.questions.map((q) => ({
+  //         id: q._id.toString(),
+  //         question: q.question,
+  //       })),
+  //     );
+
+  //     const question = match.questions.find(
+  //       (q) => q._id.toString() === questionId,
+  //     );
+
+  //     if (!question) {
+  //       console.error('❌ Question not found:', questionId);
+  //       console.error(
+  //         'Available question IDs:',
+  //         match.questions.map((q) => q._id.toString()),
+  //       );
+  //       throw new NotFoundException('Question not found');
+  //     }
+
+  //     console.log('✅ Question found:', question.question);
+
+  //     // Update question result
+  //     question.result = result;
+  //     console.log('✅ Question result updated to:', result);
+
+  //     // Update all related bets
+  //     const originalBetsCount = match.bets.length;
+  //     let updatedBetsCount = 0;
+
+  //     match.bets = match.bets.map((bet) => {
+  //       if (bet.questionId.toString() === questionId) {
+  //         const isWinner =
+  //           bet.optionLabel.toLowerCase() === result.toLowerCase();
+  //         updatedBetsCount++;
+
+  //         console.log(
+  //           `🎲 Bet Update: ${bet.optionLabel} vs ${result} = ${isWinner ? 'WON' : 'LOST'}`,
+  //         );
+
+  //         return {
+  //           ...bet,
+  //           betstatus: isWinner ? 'won' : 'lost',
+  //         };
+  //       }
+  //       return bet;
+  //     });
+
+  //     console.log(
+  //       `📊 Updated ${updatedBetsCount} bets out of ${originalBetsCount} total bets`,
+  //     );
+
+  //     const savedMatch = await match.save();
+  //     console.log('✅ Match saved successfully');
+
+  //     return savedMatch;
+  //   } catch (error) {
+  //     console.error('❌ Error in MatchService.setQuestionResult:', error);
+  //     throw error;
+  //   }
+  // }
+
   async setQuestionResult(matchId: string, questionId: string, result: string) {
     console.log('🔍 MatchService.setQuestionResult called:', {
       matchId,
@@ -342,48 +421,46 @@ export class MatchService {
         throw new NotFoundException('Match not found');
       }
 
-      console.log('✅ Match found:', match._id);
-      console.log('🔍 Looking for question:', questionId);
-      console.log(
-        '📝 Available questions:',
-        match.questions.map((q) => ({
-          id: q._id.toString(),
-          question: q.question,
-        })),
-      );
-
       const question = match.questions.find(
         (q) => q._id.toString() === questionId,
       );
 
       if (!question) {
         console.error('❌ Question not found:', questionId);
-        console.error(
-          'Available question IDs:',
-          match.questions.map((q) => q._id.toString()),
-        );
         throw new NotFoundException('Question not found');
       }
-
-      console.log('✅ Question found:', question.question);
 
       // Update question result
       question.result = result;
       console.log('✅ Question result updated to:', result);
 
-      // Update all related bets
-      const originalBetsCount = match.bets.length;
-      let updatedBetsCount = 0;
+      // Process bets and handle payouts
+      const winningBets = [];
+      const losingBets = [];
+      let totalPayouts = 0;
 
       match.bets = match.bets.map((bet) => {
-        if (bet.questionId.toString() === questionId) {
+        if (
+          bet.questionId.toString() === questionId &&
+          bet.betstatus === 'pending'
+        ) {
           const isWinner =
             bet.optionLabel.toLowerCase() === result.toLowerCase();
-          updatedBetsCount++;
 
-          console.log(
-            `🎲 Bet Update: ${bet.optionLabel} vs ${result} = ${isWinner ? 'WON' : 'LOST'}`,
-          );
+          if (isWinner) {
+            winningBets.push({
+              userId: bet.userId.toString(),
+              expectedReturn: bet.expectedReturn,
+              originalAmount: bet.amount,
+              profit: bet.expectedReturn - bet.amount,
+            });
+            totalPayouts += bet.expectedReturn;
+          } else {
+            losingBets.push({
+              userId: bet.userId.toString(),
+              lostAmount: bet.amount,
+            });
+          }
 
           return {
             ...bet,
@@ -394,12 +471,36 @@ export class MatchService {
       });
 
       console.log(
-        `📊 Updated ${updatedBetsCount} bets out of ${originalBetsCount} total bets`,
+        `🎯 Processing ${winningBets.length} winning bets and ${losingBets.length} losing bets`,
       );
+      console.log(`💰 Total payouts: ₹${totalPayouts}`);
 
+      // Save match first
       const savedMatch = await match.save();
-      console.log('✅ Match saved successfully');
 
+      // Process payouts for winning bets
+      for (const winningBet of winningBets) {
+        try {
+          console.log(`💰 Processing payout for user ${winningBet.userId}:`);
+          console.log(`   - Expected Return: ₹${winningBet.expectedReturn}`);
+          console.log(`   - Profit: ₹${winningBet.profit}`);
+
+          await this.userService.processPayout(
+            winningBet.userId,
+            winningBet.expectedReturn, // Full expected return to balance
+            winningBet.profit, // Only profit to withdrawable
+          );
+
+          console.log(`✅ Payout processed for user ${winningBet.userId}`);
+        } catch (error) {
+          console.error(
+            `❌ Error processing payout for user ${winningBet.userId}:`,
+            error,
+          );
+        }
+      }
+
+      console.log('✅ All payouts processed successfully');
       return savedMatch;
     } catch (error) {
       console.error('❌ Error in MatchService.setQuestionResult:', error);

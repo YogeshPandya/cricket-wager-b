@@ -99,6 +99,10 @@ export class User {
 
   @Prop()
   profilePic?: string;
+
+  // ✅ Add this new field
+  @Prop({ default: 0 })
+  withdrawable: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
