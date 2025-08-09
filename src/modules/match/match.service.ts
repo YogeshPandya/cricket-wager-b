@@ -244,6 +244,40 @@ export class MatchService {
     return bet;
   }
 
+  // async getUserBets(userId: string) {
+  //   const matches = await this.matchModel
+  //     .find({
+  //       'bets.userId': userId,
+  //     })
+  //     .lean();
+
+  //   // Collect only bets of that user with their match, question, option etc.
+  //   const userBets = [];
+
+  //   for (const match of matches) {
+  //     for (const bet of match.bets) {
+  //       if (bet.userId.toString() === userId) {
+  //         userBets.push({
+  //           matchId: match._id,
+  //           teamA: match.teamA,
+  //           teamB: match.teamB,
+  //           date: match.date,
+  //           time: match.time,
+  //           league: match.league,
+  //           question: bet.question,
+  //           option: bet.optionLabel,
+  //           ratio: bet.ratio,
+  //           amount: bet.amount,
+  //           expectedReturn: bet.expectedReturn,
+  //           betstatus: bet.betstatus,
+  //         });
+  //       }
+  //     }
+  //   }
+
+  //   return userBets;
+  // }
+
   async getUserBets(userId: string) {
     const matches = await this.matchModel
       .find({
@@ -251,12 +285,24 @@ export class MatchService {
       })
       .lean();
 
-    // Collect only bets of that user with their match, question, option etc.
     const userBets = [];
 
     for (const match of matches) {
       for (const bet of match.bets) {
         if (bet.userId.toString() === userId) {
+          const question = match.questions.find(
+            (q) => q._id.toString() === bet.questionId.toString(),
+          );
+
+          // Determine status (prioritize stored status, then check result)
+          let status = bet.betstatus;
+          if (status === 'pending' && question?.result) {
+            status =
+              bet.optionLabel.toLowerCase() === question.result.toLowerCase()
+                ? 'won'
+                : 'lost';
+          }
+
           userBets.push({
             matchId: match._id,
             teamA: match.teamA,
@@ -269,12 +315,95 @@ export class MatchService {
             ratio: bet.ratio,
             amount: bet.amount,
             expectedReturn: bet.expectedReturn,
-            betstatus: bet.betstatus,
+            betstatus: status,
+            result: question?.result || null, // Include result for reference
           });
         }
       }
     }
 
     return userBets;
+  }
+
+  //new code
+  // In your MatchService, make sure the setQuestionResult method is properly implemented
+
+  async setQuestionResult(matchId: string, questionId: string, result: string) {
+    console.log('🔍 MatchService.setQuestionResult called:', {
+      matchId,
+      questionId,
+      result,
+    });
+
+    try {
+      const match = await this.matchModel.findById(matchId);
+      if (!match) {
+        console.error('❌ Match not found:', matchId);
+        throw new NotFoundException('Match not found');
+      }
+
+      console.log('✅ Match found:', match._id);
+      console.log('🔍 Looking for question:', questionId);
+      console.log(
+        '📝 Available questions:',
+        match.questions.map((q) => ({
+          id: q._id.toString(),
+          question: q.question,
+        })),
+      );
+
+      const question = match.questions.find(
+        (q) => q._id.toString() === questionId,
+      );
+
+      if (!question) {
+        console.error('❌ Question not found:', questionId);
+        console.error(
+          'Available question IDs:',
+          match.questions.map((q) => q._id.toString()),
+        );
+        throw new NotFoundException('Question not found');
+      }
+
+      console.log('✅ Question found:', question.question);
+
+      // Update question result
+      question.result = result;
+      console.log('✅ Question result updated to:', result);
+
+      // Update all related bets
+      const originalBetsCount = match.bets.length;
+      let updatedBetsCount = 0;
+
+      match.bets = match.bets.map((bet) => {
+        if (bet.questionId.toString() === questionId) {
+          const isWinner =
+            bet.optionLabel.toLowerCase() === result.toLowerCase();
+          updatedBetsCount++;
+
+          console.log(
+            `🎲 Bet Update: ${bet.optionLabel} vs ${result} = ${isWinner ? 'WON' : 'LOST'}`,
+          );
+
+          return {
+            ...bet,
+            betstatus: isWinner ? 'won' : 'lost',
+          };
+        }
+        return bet;
+      });
+
+      console.log(
+        `📊 Updated ${updatedBetsCount} bets out of ${originalBetsCount} total bets`,
+      );
+
+      const savedMatch = await match.save();
+      console.log('✅ Match saved successfully');
+
+      return savedMatch;
+    } catch (error) {
+      console.error('❌ Error in MatchService.setQuestionResult:', error);
+      throw error;
+    }
   }
 }

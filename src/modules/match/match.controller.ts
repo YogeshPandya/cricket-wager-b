@@ -187,4 +187,38 @@ export class MatchController {
   async getUserBets(@Param('userId') userId: string) {
     return this.matchService.getUserBets(userId);
   }
+
+  //new code
+  // ✅ FIXED: Set Result Route - Make sure this is properly defined
+  @Patch(':matchId/set-result/:questionId')
+  async setQuestionResult(
+    @Param('matchId') matchId: string,
+    @Param('questionId') questionId: string,
+    @Body() body: { result: string },
+  ) {
+    console.log('🎯 Set Result API called:', {
+      matchId,
+      questionId,
+      result: body.result,
+    });
+
+    try {
+      const updatedMatch = await this.matchService.setQuestionResult(
+        matchId,
+        questionId,
+        body.result,
+      );
+
+      // Notify clients about the result update
+      this.matchGateway.questionUpdated(
+        matchId,
+        updatedMatch.questions.find((q) => q._id.toString() === questionId),
+      );
+
+      return { success: true, match: updatedMatch };
+    } catch (error) {
+      console.error('❌ Error in setQuestionResult controller:', error);
+      throw error;
+    }
+  }
 }
