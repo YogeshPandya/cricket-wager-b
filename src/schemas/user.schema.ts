@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 export type UserDocument = User & Document;
 
-@Schema({ timestamps: true }) // Automatically adds createdAt and updatedAt fields
+@Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true })
   username: string;
@@ -18,23 +18,91 @@ export class User {
   phoneNumber: string;
 
   @Prop({ required: true })
-  password: string;
+  password: string; // Hashed password only
 
-  @Prop({ default: null })
-  referralCode?: string;
+  @Prop({ default: Date.now })
+  registrationDate: Date;
 
-  @Prop({ default: 0 })
-  amount: number; // Total balance
+  @Prop({
+    type: [
+      {
+        amount: Number,
+        utr: String,
+        status: {
+          type: String,
+          enum: ['Pending', 'Success', 'Failed'],
+          default: 'Pending',
+        },
+        createdAt: { type: Date, default: Date.now },
+        updatedAt: { type: Date },
+      },
+    ],
+    default: [],
+  })
+  rechargeHistory: {
+    amount: number;
+    utr: string;
+    status: 'Pending' | 'Success' | 'Failed';
+    createdAt: Date;
+  }[];
 
-  @Prop({ default: 0 })
-  withdrawableAmount: number; // Balance that can be withdrawn
+  @Prop({
+    type: [
+      {
+        amount: Number,
+        upiId: String,
+        holderName: String,
+        status: {
+          type: String,
+          enum: ['Pending', 'Success', 'Failed'],
+          default: 'Pending',
+        },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  })
+  withdrawalHistory: {
+    amount: number;
+    upiId: string;
+    holderName: string;
+    status: 'Pending' | 'Success' | 'Failed';
+    createdAt: Date;
+  }[];
 
-  // ✅ Added for Forgot Password
+  @Prop({
+    type: [
+      {
+        amount: Number,
+        winAmount: Number,
+        questionId: String,
+        isWon: Boolean,
+      },
+    ],
+    default: [],
+  })
+  bets: {
+    amount: number;
+    winAmount: number;
+    questionId: string;
+    isWon: boolean;
+  }[];
+
   @Prop()
   resetToken?: string;
 
   @Prop()
   resetTokenExpires?: Date;
+
+  @Prop({ default: 0 })
+  balance: number;
+
+  @Prop()
+  profilePic?: string;
+
+  // ✅ Add this new field
+  @Prop({ default: 0 })
+  withdrawable: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
