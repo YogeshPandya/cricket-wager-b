@@ -274,6 +274,7 @@ export class UserService {
 
     if (status === 'approved') {
       user.balance -= request.amount;
+      user.withdrawable -= request.amount;
     }
 
     await user.save();
