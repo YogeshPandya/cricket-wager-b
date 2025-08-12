@@ -69,7 +69,7 @@ export class Match {
         expectedReturn: { type: Number, required: true },
         betstatus: {
           type: String,
-          enum: ['pending', 'won', 'lost'],
+          enum: ['pending', 'won', 'lost', 'draw'],
           default: 'pending',
         },
       },
@@ -86,7 +86,7 @@ export class Match {
     ratio: string;
     amount: number;
     expectedReturn: number;
-    betstatus: 'pending' | 'won' | 'lost';
+    betstatus: 'pending' | 'won' | 'lost' | 'draw';
   }[];
 
   //new

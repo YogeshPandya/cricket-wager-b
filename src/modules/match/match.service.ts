@@ -437,6 +437,7 @@ export class MatchService {
       // Process bets and handle payouts
       const winningBets = [];
       const losingBets = [];
+      const drawBets = [];
       let totalPayouts = 0;
 
       match.bets = match.bets.map((bet) => {
@@ -444,34 +445,48 @@ export class MatchService {
           bet.questionId.toString() === questionId &&
           bet.betstatus === 'pending'
         ) {
-          const isWinner =
-            bet.optionLabel.toLowerCase() === result.toLowerCase();
-
-          if (isWinner) {
-            winningBets.push({
+          if (result.toLowerCase() === 'draw') {
+            // Handle draw case - refund original amount
+            drawBets.push({
               userId: bet.userId.toString(),
-              expectedReturn: bet.expectedReturn,
-              originalAmount: bet.amount,
-              profit: bet.expectedReturn - bet.amount,
+              refundAmount: bet.amount,
             });
-            totalPayouts += bet.expectedReturn;
+            totalPayouts += bet.amount;
+
+            return {
+              ...bet,
+              betstatus: 'draw',
+            };
           } else {
-            losingBets.push({
-              userId: bet.userId.toString(),
-              lostAmount: bet.amount,
-            });
-          }
+            const isWinner =
+              bet.optionLabel.toLowerCase() === result.toLowerCase();
 
-          return {
-            ...bet,
-            betstatus: isWinner ? 'won' : 'lost',
-          };
+            if (isWinner) {
+              winningBets.push({
+                userId: bet.userId.toString(),
+                expectedReturn: bet.expectedReturn,
+                originalAmount: bet.amount,
+                profit: bet.expectedReturn - bet.amount,
+              });
+              totalPayouts += bet.expectedReturn;
+            } else {
+              losingBets.push({
+                userId: bet.userId.toString(),
+                lostAmount: bet.amount,
+              });
+            }
+
+            return {
+              ...bet,
+              betstatus: isWinner ? 'won' : 'lost',
+            };
+          }
         }
         return bet;
       });
 
       console.log(
-        `🎯 Processing ${winningBets.length} winning bets and ${losingBets.length} losing bets`,
+        `🎯 Processing ${winningBets.length} winning bets, ${losingBets.length} losing bets, and ${drawBets.length} draw bets`,
       );
       console.log(`💰 Total payouts: ₹${totalPayouts}`);
 
@@ -481,17 +496,11 @@ export class MatchService {
       // Process payouts for winning bets
       for (const winningBet of winningBets) {
         try {
-          console.log(`💰 Processing payout for user ${winningBet.userId}:`);
-          console.log(`   - Expected Return: ₹${winningBet.expectedReturn}`);
-          console.log(`   - Profit: ₹${winningBet.profit}`);
-
           await this.userService.processPayout(
             winningBet.userId,
-            winningBet.expectedReturn, // Full expected return to balance
-            winningBet.profit, // Only profit to withdrawable
+            winningBet.expectedReturn,
+            winningBet.profit,
           );
-
-          console.log(`✅ Payout processed for user ${winningBet.userId}`);
         } catch (error) {
           console.error(
             `❌ Error processing payout for user ${winningBet.userId}:`,
@@ -500,7 +509,26 @@ export class MatchService {
         }
       }
 
-      console.log('✅ All payouts processed successfully');
+      // Process refunds for draw bets
+      for (const drawBet of drawBets) {
+        try {
+          console.log(
+            `🔄 Processing refund for user ${drawBet.userId}: ₹${drawBet.refundAmount}`,
+          );
+          await this.userService.addToBalance(
+            drawBet.userId,
+            drawBet.refundAmount,
+          );
+          console.log(`✅ Refund processed for user ${drawBet.userId}`);
+        } catch (error) {
+          console.error(
+            `❌ Error processing refund for user ${drawBet.userId}:`,
+            error,
+          );
+        }
+      }
+
+      console.log('✅ All payouts and refunds processed successfully');
       return savedMatch;
     } catch (error) {
       console.error('❌ Error in MatchService.setQuestionResult:', error);

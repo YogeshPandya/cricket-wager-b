@@ -365,4 +365,18 @@ export class UserService {
       throw error;
     }
   }
+
+  async addToBalance(userId: string, amount: number) {
+    const user = await this.userModel.findByIdAndUpdate(
+      userId,
+      { $inc: { balance: amount } },
+      { new: true },
+    );
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
 }
