@@ -274,6 +274,7 @@ export class UserService {
 
     if (status === 'approved') {
       user.balance -= request.amount;
+      user.withdrawable -= request.amount;
     }
 
     await user.save();
@@ -363,5 +364,19 @@ export class UserService {
       console.error(`❌ Error processing payout for user ${userId}:`, error);
       throw error;
     }
+  }
+
+  async addToBalance(userId: string, amount: number) {
+    const user = await this.userModel.findByIdAndUpdate(
+      userId,
+      { $inc: { balance: amount } },
+      { new: true },
+    );
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
   }
 }
